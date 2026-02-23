@@ -1,3 +1,6 @@
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winlive.h>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -15,7 +18,6 @@
 #include "minhook/MinHook.h"
 #include "IVSDK.cpp"
 
-typedef unsigned int(__stdcall* XLiveSetSponsorTokenFunc)(LPCWSTR, DWORD);
 
 std::vector<std::pair<std::string, std::wstring>> pairs, pairs_offline = {
     {"f7a957f68a9ac890", L"FXRHK-T8PDY-FHBCH-G6YJG-XF8PJ"},
@@ -241,19 +243,6 @@ void activate_gfwl() {
 
     // Activate GFWL
 
-    HMODULE hModule = LoadLibrary("LiveTokenHelper.dll");
-    if (!hModule) {
-        MessageBox(NULL, "Failed to load LiveTokenHelper.dll", "Error", MB_OK | MB_ICONERROR);
-        ExitProcess(1);
-    }
-
-    auto XLiveSetSponsorToken = reinterpret_cast<XLiveSetSponsorTokenFunc>(GetProcAddress(hModule, "XLiveSetSponsorToken"));
-    if (!XLiveSetSponsorToken) {
-        MessageBox(NULL, "Failed to find XLiveSetSponsorToken function in LiveTokenHelper.dll", "Error", MB_OK | MB_ICONERROR);
-        FreeLibrary(hModule);
-        ExitProcess(1);
-    }
-
     uint8_t titleIDbytes[] = { 0x3B, 0x08, 0x54, 0x54 };
     uint32_t titleID;
     std::memcpy(&titleID, titleIDbytes, sizeof(titleID));
@@ -263,10 +252,8 @@ void activate_gfwl() {
     }
     catch (const std::exception& e) {
         MessageBox(NULL, e.what(), "Error", MB_OK | MB_ICONERROR);
-        FreeLibrary(hModule);
         ExitProcess(1);
     }
-    FreeLibrary(hModule);
 
     // Write PCID to registry
 
