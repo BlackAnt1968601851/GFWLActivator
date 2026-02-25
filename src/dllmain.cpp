@@ -16,7 +16,6 @@
 #include <nlohmann/json.hpp>
 
 #include "minhook/MinHook.h"
-#include "IVSDK.cpp"
 
 
 std::vector<std::pair<std::string, std::wstring>> pairs, pairs_offline = {
@@ -153,8 +152,6 @@ std::string download_from_web(const std::string& url) {
     return response;
 }
 
-void plugin::gameStartupEvent() {}
-
 BOOL(WINAPI* original_ShowWindow)(HWND hWnd, int nCmdShow) = nullptr;
 std::atomic<bool> gfwl_activated = false;
 
@@ -222,21 +219,22 @@ void activate_gfwl() {
 
     // Delete previous token.bin
 
-    char path[MAX_PATH];
+    char localappdata[MAX_PATH];
 
-    if (!SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, path))) {
+    if (!SUCCEEDED(SHGetFolderPath(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localappdata))) {
         MessageBox(NULL, "Failed to locate %localappdata%", "Error", MB_OK | MB_ICONERROR);
         ExitProcess(1);
     }
-    strcat(path, "\\Microsoft\\XLive\\Titles\\5454083b");
+    std::filesystem::path path = std::filesystem::path(localappdata) / "Microsoft" / "XLive" / "Titles";
 
-    std::filesystem::path folderPath = path;
-
-    if (std::filesystem::exists(folderPath)) {
-        std::error_code ec;
-        std::filesystem::remove_all(folderPath, ec);
-        if (ec) {
-            MessageBox(NULL, ec.message().c_str(), "Failed to delete file", MB_OK | MB_ICONERROR);
+    if (std::filesystem::exists(path)) {
+        try {
+            for (const auto& entry : std::filesystem::directory_iterator(path)) {
+                std::filesystem::remove_all(entry.path());
+            }
+        }
+        catch (std::exception& e) {
+            MessageBox(NULL, e.what(), "Error deleting files", MB_OK | MB_ICONERROR);
             ExitProcess(1);
         }
     }
@@ -302,8 +300,6 @@ BOOL WINAPI DllMain(const HMODULE instance, const uintptr_t reason, const void* 
 
         DisableThreadLibraryCalls(instance);
         CreateThread(nullptr, 0, InstallHookThread, nullptr, 0, nullptr);
-
-        plugin::Init();
     }
     return TRUE;
 }
