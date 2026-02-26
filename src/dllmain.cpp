@@ -154,6 +154,7 @@ std::string download_from_web(const std::string& url) {
 
 BOOL(WINAPI* original_ShowWindow)(HWND hWnd, int nCmdShow) = nullptr;
 std::atomic<bool> gfwl_activated = false;
+HANDLE m_hLiveNotify;
 
 BOOL WINAPI hooked_ShowWindow(HWND hWnd, int nCmdShow) {
     gfwl_activated.wait(false);
@@ -290,13 +291,72 @@ void activate_gfwl() {
 
     RegCloseKey(hKey);
 
+
+}
+
+
+void ProcessXLiveNotifications()
+{
+    DWORD dwId;
+    ULONG_PTR param;
+
+    while (XNotifyGetNext(m_hLiveNotify, 0, &dwId, &param))
+    {
+        switch (dwId)
+        {
+        case XN_SYS_SIGNINCHANGED:
+            // Process notification here.
+            if (XUserGetSigninState(0) == eXUserSigninState_NotSignedIn)
+            {
+                activate_gfwl();
+            }
+            break;
+        }
+    }
+
+}
+
+
+void EventHandlerLoop()
+{
+    while (true)
+    {
+        ProcessXLiveNotifications();
+    }
+}
+
+
+void InitializeEventHandler()
+{
+    HRESULT hr;
+    while (true)
+    {
+        m_hLiveNotify = XNotifyCreateListener(XNOTIFY_SYSTEM);
+        if (m_hLiveNotify == NULL)
+        {
+            hr = E_FAIL;
+        }
+        if (m_hLiveNotify != NULL)
+        {
+            hr = S_OK;
+            break;
+        }
+    }
+    EventHandlerLoop();
+}
+
+
+void Startup()
+{
+    activate_gfwl();
     gfwl_activated.store(true);
     gfwl_activated.notify_all();
+    InitializeEventHandler();
 }
 
 BOOL WINAPI DllMain(const HMODULE instance, const uintptr_t reason, const void* lpReserved) {
     if (reason == DLL_PROCESS_ATTACH) {
-        std::thread(&activate_gfwl).detach();
+        std::thread(&Startup).detach();
 
         DisableThreadLibraryCalls(instance);
         CreateThread(nullptr, 0, InstallHookThread, nullptr, 0, nullptr);
