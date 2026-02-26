@@ -34,7 +34,6 @@ std::vector<std::pair<std::string, std::wstring>> pairs, pairs_offline = {
     {"7626ef2d926d531c", L"JY6GC-GD69H-G4TC2-BF9MJ-FW9YJ"},
     {"f5f8b883dec12691", L"Q38PK-B9WCR-8D8WP-C8Y28-9DW73"},
     {"e805ed18e22fb0f7", L"GXTHG-JCQMJ-WVBCP-MDVPV-JBX43"},
-    // new
     {"b14faa6d0cc91a7e", L"RHQV3-7G3FM-9T4CD-F9H8B-FT66Q"},
     {"901d4677395549ab", L"CMBMJ-CG3PC-R2HY8-6RYGG-CRWTY"},
     {"fdb3f9aab7dfbdd9", L"CPTJV-PYQRR-VY79Y-7PMM6-DWBF3"},
@@ -85,7 +84,7 @@ std::vector<std::pair<std::string, std::wstring>> pairs, pairs_offline = {
     {"e2421be6a381f938", L"FFD9H-C2JMD-VCDV4-DDPFT-8H4P7"},
     {"7d331075b1eaa7aa", L"D99H6-G4XMC-Q62J8-CWY44-P3DV7"},
 
-    // new
+    // magnus.dh's key, blud left the server later
     {"30372378dd64c533", L"QKH8F-MQGRB-BK84C-PQDKX-WYHDD"},
     {"65d34194039b7fab", L"QKH8F-MQGRB-BK84C-PQDKX-WYHDD"},
     {"b0633a3104122d67", L"QKH8F-MQGRB-BK84C-PQDKX-WYHDD"},
@@ -93,6 +92,8 @@ std::vector<std::pair<std::string, std::wstring>> pairs, pairs_offline = {
     {"e14b8ec65d92fd14", L"QKH8F-MQGRB-BK84C-PQDKX-WYHDD"},
     {"375d9f5e673155e2", L"QKH8F-MQGRB-BK84C-PQDKX-WYHDD"},
     {"be7e1183bfa0c68a", L"QKH8F-MQGRB-BK84C-PQDKX-WYHDD"},
+
+    // kero's key
     {"3db08f7f0aa1a255", L"Q7JJ3-6DGH3-KQRP7-7JFFH-GK6V3"},
     {"8588eeaab73a4027", L"Q7JJ3-6DGH3-KQRP7-7JFFH-GK6V3"},
     {"43f9fb4a2dbe33e6", L"Q7JJ3-6DGH3-KQRP7-7JFFH-GK6V3"},
@@ -131,7 +132,7 @@ static size_t write_callback(void* contents, size_t size, size_t nmemb, void* us
     return totalSize;
 }
 
-std::string download_from_web(const std::string& url) {
+static std::string download_from_web(const std::string& url) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         throw std::runtime_error("Failed to initialize CURL");
@@ -165,12 +166,12 @@ BOOL(WINAPI* original_ShowWindow)(HWND hWnd, int nCmdShow) = nullptr;
 std::atomic<bool> gfwl_activated = false;
 HANDLE m_hLiveNotify;
 
-BOOL WINAPI hooked_ShowWindow(HWND hWnd, int nCmdShow) {
+static BOOL WINAPI hooked_ShowWindow(HWND hWnd, int nCmdShow) {
     gfwl_activated.wait(false);
     return original_ShowWindow(hWnd, nCmdShow);
 }
 
-DWORD WINAPI InstallHookThread(LPVOID) {
+static DWORD WINAPI InstallHookThread(LPVOID) {
     if (MH_Initialize() != MH_OK) return 1;
 
     if (MH_CreateHook(
@@ -184,40 +185,7 @@ DWORD WINAPI InstallHookThread(LPVOID) {
     return 0;
 }
 
-void activate_gfwl() {
-
-    // Set FixPCIDKickbug to 0
-
-    std::fstream file("ZolikaPatch.ini", std::ios::in | std::ios::out);
-    if (file) {
-        std::string line;
-        std::streampos pos;
-        while (pos = file.tellg(), std::getline(file, line)) {
-            if (line == "FixPCIDKickbug=1") {
-                file.seekp(pos);
-                file << "FixPCIDKickbug=0";
-                break;
-            }
-        }
-    }
-
-    // Download PCID-key pairs
-
-    nlohmann::json jsonData;
-    const char url[] = "http://gist.githubusercontent.com/Yilmaz4/354e733972d8a55b04007c53ff0f9ce4/raw";
-
-    try {
-        std::string data = download_from_web("gist.githubusercontent.com/Yilmaz4/354e733972d8a55b04007c53ff0f9ce4/raw");
-        jsonData = nlohmann::json::parse(data);
-        for (const auto& pair : jsonData) {
-            std::string pcid = pair["pcid"];
-            std::wstring key = string_to_wstring(pair["key"]);
-            pairs.push_back({ pcid, key });
-        }
-    }
-    catch (std::exception& e) {
-        pairs = pairs_offline;
-    }
+static void activate_gfwl() {
 
     // Choose PCID-key pair
 
@@ -299,73 +267,95 @@ void activate_gfwl() {
     }
 
     RegCloseKey(hKey);
-
-
 }
 
+static void EventHandlerLoop() {
+    while (true) {
+        DWORD dwId;
+        ULONG_PTR param;
 
-void ProcessXLiveNotifications()
-{
-    DWORD dwId;
-    ULONG_PTR param;
+        while (XNotifyGetNext(m_hLiveNotify, 0, &dwId, &param)) {
+            switch (dwId) {
+            case XN_SYS_SIGNINCHANGED:
+                
+                // Reactivate GFWL when the user signs out
 
-    while (XNotifyGetNext(m_hLiveNotify, 0, &dwId, &param))
-    {
-        switch (dwId)
-        {
-        case XN_SYS_SIGNINCHANGED:
-            // Process notification here.
-            if (XUserGetSigninState(0) == eXUserSigninState_NotSignedIn)
-            {
-                activate_gfwl();
+                if (XUserGetSigninState(0) == eXUserSigninState_NotSignedIn) {
+                    activate_gfwl();
+                }
+                break;
             }
-            break;
         }
-    }
-
-}
-
-
-void EventHandlerLoop()
-{
-    while (true)
-    {
-        ProcessXLiveNotifications();
+        std::this_thread::sleep_for(std::chrono::seconds{ 1 });
     }
 }
 
-
-void InitializeEventHandler()
-{
-    HRESULT hr;
-    while (true)
-    {
+static void InitializeEventHandler() {
+    while (true) {
         m_hLiveNotify = XNotifyCreateListener(XNOTIFY_SYSTEM);
-        if (m_hLiveNotify == NULL)
-        {
-            hr = E_FAIL;
+        if (m_hLiveNotify == NULL) {
+            std::this_thread::sleep_for(std::chrono::seconds{ 1 });
+            continue;
         }
-        if (m_hLiveNotify != NULL)
-        {
-            hr = S_OK;
-            break;
-        }
+        break;
     }
     EventHandlerLoop();
 }
 
+static void Startup() {
 
-void Startup()
-{
+    // Set FixPCIDKickbug to 0
+
+    std::fstream file("ZolikaPatch.ini", std::ios::in | std::ios::out);
+    if (file) {
+        std::string line;
+        std::streampos pos;
+        while (pos = file.tellg(), std::getline(file, line)) {
+            if (line == "FixPCIDKickbug=1") {
+                file.seekp(pos);
+                file << "FixPCIDKickbug=0";
+                break;
+            }
+        }
+    }
+
+    // Download PCID-key pairs
+
+    nlohmann::json jsonData;
+    const char url[] = "http://gist.githubusercontent.com/Yilmaz4/354e733972d8a55b04007c53ff0f9ce4/raw";
+
+    try {
+        std::string data = download_from_web("gist.githubusercontent.com/Yilmaz4/354e733972d8a55b04007c53ff0f9ce4/raw");
+        jsonData = nlohmann::json::parse(data);
+        for (const auto& pair : jsonData) {
+            std::string pcid = pair["pcid"];
+            std::wstring key = string_to_wstring(pair["key"]);
+            pairs.push_back({ pcid, key });
+        }
+    }
+    catch (std::exception& e) {
+        pairs = pairs_offline;
+    }
+
+    // Initial activation
+
     activate_gfwl();
+
+    // Allow the game to launch
+
     gfwl_activated.store(true);
     gfwl_activated.notify_all();
+
+    // Detect sign-outs and activate again
+
     InitializeEventHandler();
 }
 
-BOOL WINAPI DllMain(const HMODULE instance, const uintptr_t reason, const void* lpReserved) {
+static BOOL WINAPI DllMain(const HMODULE instance, const uintptr_t reason, const void* lpReserved) {
     if (reason == DLL_PROCESS_ATTACH) {
         std::thread(&Startup).detach();
+
+        // Hook ShowWindow to delay the startup of the game till first activation is successful
 
         DisableThreadLibraryCalls(instance);
         CreateThread(nullptr, 0, InstallHookThread, nullptr, 0, nullptr);
