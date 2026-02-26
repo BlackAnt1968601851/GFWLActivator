@@ -108,6 +108,15 @@ std::vector<std::pair<std::string, std::wstring>> pairs, pairs_offline = {
     {"6d3fb7bef6f9d923", L"Q7JJ3-6DGH3-KQRP7-7JFFH-GK6V3"},
     {"029dbf419f4d926e", L"Q7JJ3-6DGH3-KQRP7-7JFFH-GK6V3"},
 
+    // mystical's key
+    {"6250fcfcc805424d", L"C76HT-DC8KB-WTY84-MPYXW-268WY"},
+    {"351327a1cb8c1209", L"C76HT-DC8KB-WTY84-MPYXW-268WY"},
+    {"49f116a7ca527495", L"C76HT-DC8KB-WTY84-MPYXW-268WY"},
+    {"3c208be11b14d93f", L"C76HT-DC8KB-WTY84-MPYXW-268WY"},
+    {"21de1c0b8491a84a", L"C76HT-DC8KB-WTY84-MPYXW-268WY"},
+    {"aeb594bf698f76c2", L"C76HT-DC8KB-WTY84-MPYXW-268WY"},
+    {"24ada2edd47196d2", L"C76HT-DC8KB-WTY84-MPYXW-268WY"},
+    {"eb77496b7f8db51d", L"C76HT-DC8KB-WTY84-MPYXW-268WY"}
 };
 
 static std::wstring string_to_wstring(const std::string& str) {
